@@ -1,6 +1,8 @@
 #Bomb_Lab  :: Solution by BaeJuneHyuck , PNU CSE
 
 ##<Phase_1>
+
+```
 00000000000012b4 <phase_1>:
     12b4:	48 83 ec 08          	sub    $0x8,%rsp
     12b8:	48 8d 35 d1 18 00 00 	lea    0x18d1(%rip),%rsi        # 2b90 <_IO_stdin_used+0x150>
@@ -11,14 +13,16 @@
     12cc:	c3                   	retq   
     12cd:	e8 82 08 00 00       	callq  1b54 <explode_bomb>
     12d2:	eb f4                	jmp    12c8 <phase_1+0x14>
+```
 
-우선 Phase_1을 호출하는 메인 함수를 살펴보면 input = read_line()과 phase_1(input)을 확인 할 수 있다. 이후 다른 phase들에서도 동일하게 입력 받은 line (input)을 통해 각 phase를 호출하고 있음을 알 수 있다. 
-이제 Phase_1로 들어가보면 스택의 공간을 할당 후 lea 0x18d1(%rip), %rsi을 통해 rip+0x18d1 즉 0x2b90의 값을 그대로 %rsi에 저장하고 있음을 확인할 수 있다. 이후     callq <strings_not_equal> 의 결과값(%eax)를 test하여 explode_bomb()으 로 점프할지, Phase_1이 정상적으로 종료될지가 결정된다. 앞의 정보들을 종합하여 %rsi를 통해 전달된 값이 input과 비교됨을 예상하였고, x/s 2b90을 입력해 그 주소에 있는 값이
-"You can Russia from land here in Alaska." 라는 문자열임을 알게 되었다.
+우선 Phase_1을 호출하는 메인 함수를 살펴보면 **input = read_line()**과 **phase_1(input)**을 확인 할 수 있다.  이후 다른 phase들에서도 동일하게 입력 받은 line (input)을 통해 각 phase를 호출하고 있음을 알 수 있다. 
+ 이제 Phase_1로 들어가보자. 스택의 공간을 할당 후 lea 0x18d1(%rip), %rsi을 통해 rip+0x18d1 즉 0x2b90의 값을 그대로 %rsi에 저장하고 있음을 확인할 수 있다. 이후 **callq <strings_not_equal>** 의 결과값(%eax)를 test하여 explode_bomb()으 로 점프할지, Phase_1이 정상적으로 종료될지가 결정된다. 앞의 정보들을 종합하여 %rsi를 통해 전달된 값이 input과 비교됨을 예상하였고, x/s 2b90을 입력해 그 주소에 있는 값이
+**"You can Russia from land here in Alaska."** 라는 문자열임을 알게 되었다.
 이를 입력하여 phase_1을 defuse하였다.
 
 ##<Phase_2>
 
+```
 00000000000012d4 <phase_2>:
     12d4:	55                   	push   %rbp
     12d5:	53                   	push   %rbx
@@ -55,18 +59,21 @@
     133c:	5d                   	pop    %rbp
     133d:	c3                   	retq   
     133e:	e8 ad fb ff ff       	callq  ef0 <__stack_chk_fail@plt>
+```
 
-<read_six_numbers>를 통해 input된 line을 6개의 숫자로 저장하는 것을 알 수 있다. 이후 첫번째 비교인 cmpl $0x0, (%rsp) 를 통해 첫번째 입력은 0임을 알 수 있고, 다음 비교 cmpl  $0x1, 0x4(%rsp)를 통해 두번째 입력은 1임을 알 수 있다. 이후 jmp를 통해 함수의 중간으로 이동, 몇번의 명령을 수행 후 입력 받은 값과 이전 값들의 합을 비교하는 것을 확인 할 수 있고, 이를 통해 어떤 동작을 수행하는 loop문이 존재함을 알게 되었다. Loop 문 내부를 살펴보면add $0x4, %rbx / cmp %rbp, %rbx 이후 je를통해 Loop를 빠져나가는 것으로 보아 %rbx가 loop의 counter로써 작동하고 있음을 알 수 있다. Loop문 내부를 확인하면 다음의 명령들이 계속 반복된다.
+<read_six_numbers>를 통해 input된 line을 6개의 숫자로 저장하는 것을 알 수 있다. 이후 첫번째 비교인 cmpl $0x0, (%rsp) 를 통해 첫번째 입력은 0임을 알 수 있고, 다음 비교 cmpl  $0x1, 0x4(%rsp)를 통해 두번째 입력은 1임을 알 수 있다. 또한 jmp를 통해 함수의 중간으로 이동, 몇번의 명령을 수행 후 입력 받은 값과 이전 값들의 합을 비교하는 것을 확인 할 수 있고, 이를 통해 어떤 동작을 수행하는 loop문이 존재함을 알게 되었다. Loop 문 내부를 살펴보면 **add $0x4, %rbx** / **cmp %rbp, %rbx** 이후 je를통해 Loop를 빠져나가는 것으로 보아 %rbx가 loop의 counter로써 작동하고 있음을 알 수 있다. Loop문 내부를 확인하면 다음의 명령들이 계속 반복된다.
+```
 mov    0x4(%rbx), %eax  	// %rbx+4
 add    (%rbx), %eax     	// %rbx+4값 + %rbx
 cmp    %eax,0x8(%rbx)	// 두개의 합과 입력한 수의 비교
+```
 이를 통해 x[i] = x[i-1]+x[i-2], 즉 피보나치 수열을 구현하는 알고리즘임을 알 수 있다
-첫번째 두번째 조건인 x[0]=0, x[1]=1을 이용하면 정답 입력은0, 1, 1, 2, 3, 5이다.
+첫번째 두번째 조건인 x[0]=0, x[1]=1을 이용하면 정답 입력은**0, 1, 1, 2, 3, 5**이다.
 
 
 ##<Phase_3>
 
-
+```
 0000000000001343 <phase_3>:
     1343:	48 83 ec 28          	sub    $0x28,%rsp
     1347:	64 48 8b 04 25 28 00 	mov    %fs:0x28,%rax
@@ -157,12 +164,13 @@ cmp    %eax,0x8(%rbx)	// 두개의 합과 입력한 수의 비교
     14b3:	48 83 c4 28          	add    $0x28,%rsp
     14b7:	c3                   	retq   
     14b8:	e8 33 fa ff ff       	callq  ef0 <__stack_chk_fail@plt>
+```
 
- scanf 실행 직전에 lea 0x1879(%rip), %rsi를 실행하여 format으로 rip(136d) + 1879 = 2be6 을 전달하고 있으며 x/s 0x2be6을 통해 이 값이 "%b %c %d”임을 확인하였음. 첫번째 비교인 
-cmp $0x2, %eax 를 통해 scanf의 리턴인 %eax가 2보다 큰 점을 알 수 있는데, scanf의 리턴은 입력의 개수이므로 “%b %c %d”를 입력 해야함을 재확인할 수 있다. 두번째 비교인 cmpl $0x7, 0x10(%rsp)을 통해 입력이 7보다 클 경우 <explode_bomb>으로 점프하는 것을 확인하였다. 이후 movslq (%rdx, %rax,4), %rax / jmpq *%rax를 통해 스위치문의 내부로 간접 점프함을 확인할 수 있다. 첫번째 입력으로 1을 넣을 경우 mov $0x78, %eax 로 시작하는 케이스문으로 들어가는데, 0x78은 char로 x와 같고 이후cmpl $0x310, 0x14(%rsp)의 비교를 통해 다음 입력되는 정수가 0x310, 즉 784와 비교됨을 알 수 있다. 따라서 1 x 784를 입력, Phase_3를 defuse 하였다.
+ scanf 실행 직전에 lea 0x1879(%rip), %rsi를 실행하여 format으로 rip(136d) + 1879 = 2be6 을 전달하고 있으며 x/s 0x2be6을 통해 이 값이 "%b %c %d”임을 확인하였음. 첫번째 비교인 **cmp $0x2, %eax**를 통해 scanf의 리턴인 %eax가 2보다 큰 점을 알 수 있는데, scanf의 리턴은 입력의 개수이므로 “%b %c %d”를 입력 해야함을 재확인할 수 있다. 두번째 비교인 cmpl $0x7, 0x10(%rsp)을 통해 입력이 7보다 클 경우 <explode_bomb>으로 점프하는 것을 확인하였다. 이후 **movslq (%rdx, %rax,4), %rax**/ **jmpq *%rax**를 통해 스위치문의 내부로 간접 점프함을 확인할 수 있다. 첫번째 입력으로 1을 넣을 경우 mov $0x78, %eax 로 시작하는 케이스문으로 들어가는데, 0x78은 char로 x와 같고 이후cmpl $0x310, 0x14(%rsp)의 비교를 통해 다음 입력되는 정수가 0x310, 즉 784와 비교됨을 알 수 있다. 따라서 **1 x 784**를 입력, Phase_3를 defuse 하였다.
 
 ##<Phase_4>
 
+```
 00000000000014bd <func4>:
     14bd:	b8 00 00 00 00       	mov    $0x0,%eax
     14c2:	85 ff                	test   %edi,%edi
@@ -218,17 +226,25 @@ cmp $0x2, %eax 를 통해 scanf의 리턴인 %eax가 2보다 큰 점을 알 수 
     155b:	48 83 c4 18          	add    $0x18,%rsp
     155f:	c3                   	retq   
     1560:	e8 8b f9 ff ff       	callq  ef0 <__stack_chk_fail@plt>
+```
 
 
- Phase_4의 도입부의 lea 0x1994(%rip), %rsi를 확인, x/s 0x2EAD를 통해 입력이 “%d %d”임을 알 수 있다. 첫번째 비교를 수행하는 3개의 명령어 mov (%rsp), %eax / sub  $0x2, %eax / cmp   $0x2, %eax를 통해 하나의 입력은 4이하임을 알 수 있다. 이후 Phase_4는 func4() 라는 또다른 함수를 인자8로 호출한다.
+ Phase_4의 도입부의 **lea 0x1994(%rip), %rsi**를 확인, x/s 0x2EAD를 통해 입력이 “%d %d”임을 알 수 있다. 첫번째 비교를 수행하는 3개의 명령어 mov (%rsp), %eax / sub  $0x2, %eax / cmp   $0x2, %eax를 통해 하나의 입력은 4이하임을 알 수 있다. 이후 Phase_4는 func4() 라는 또다른 함수를 인자8로 호출한다.
+ 
  func4()를 살펴보면 재귀적으로 자기 자신을 호출하는데. 인자가 0이면 그대로 0을 리턴, 인자가 1일경우 %rsi의 값이 리턴. 그 외의 경우는 아래와 같이
-lea    -0x1(%rdi), %edi / callq  14bd <func4> 를 통해 func4(x-1)을
-lea    -0x2(%rdi), %edi / callq  14bd <func4> 를 통해 func4(x-2)를 호출, 두 결과를 %rsi와 더해주고 있다. 이를 통해 x>1일때, func4(x) = funx4(x-1)+func4(x-2)+%rsi를 알 수 있다.
-다시Phase_4로 돌아오면 cmp %eax, 0x4(%rsp)를 통해 func4의 리턴값과 두번째 입력을 비교함을 알 수 있다. 조건에 맞는 두번째 입력으로 2를 입력 후, Func4(8)의 리턴값을 계산하면 108을 얻을 수 있으며. 이에 108 2를 입력하여 Phase_4를 defuse 하였다.
+```
+lea    -0x1(%rdi), %edi
+callq  14bd <func4> 	//func4(x-1)을
+lea    -0x2(%rdi), %edi 
+callq  14bd <func4>     //func4(x-2)를 호출, 이후 두 결과값과 %rsi를 합해줌
+```
+ 이를 통해 x>1일때, func4(x) = funx4(x-1)+func4(x-2)+%rsi를 알 수 있다.
+다시Phase_4로 돌아오면 cmp %eax, 0x4(%rsp)를 통해 func4의 리턴값과 두번째 입력을 비교함을 알 수 있다. 조건에 맞는 두번째 입력으로 2를 입력 후, Func4(8)의 리턴값을 계산하면 108을 얻을 수 있으며. 이에 **108 2**를 입력하여 Phase_4를 defuse 하였다.
 
 
 ##<Phase_5>
 
+```
 0000000000001565 <phase_5>:
     1565:	48 83 ec 18          	sub    $0x18,%rsp
     1569:	64 48 8b 04 25 28 00 	mov    %fs:0x28,%rax
@@ -270,32 +286,47 @@ lea    -0x2(%rdi), %edi / callq  14bd <func4> 를 통해 func4(x-2)를 호출, �
     15ec:	e8 63 05 00 00       	callq  1b54 <explode_bomb>
     15f1:	eb 9f                	jmp    1592 <phase_5+0x2d>
     15f3:	e8 f8 f8 ff ff       	callq  ef0 <__stack_chk_fail@plt>
+```
 
 
+ **lea 0x1925(%rip), %rsi** 에서x/s 0x2ead 을 통해 입력의 형식이 “%d %d”임을 확인 하였다. 
+ ```
+ mov (%rsp), %eax
+ and $0xf, %eax
+ mov %eax, (%rsp)
+ cmp $0xf, %eax 
+ ```
+의 일련의 명령을 통해 첫번째 입력은 어떤 값을 주던지 간에 최하위 4비트만 저장되며, 그 값이 1111은 아님을 알 수 있다. 
 
 
- lea 0x1925(%rip), %rsi 에서x/s 0x2ead 을 통해 입력의 형식이 “%d %d”임을 확인 하였다. mov (%rsp), %eax / and $0xf, %eax / mov %eax, (%rsp) / cmp $0xf, %eax 의 일련의 명령을 통해 첫번째 입력은 어떤 값을 주던지 간에 최하위 4비트만 저장되며, 그 값이 1111은 아님을 알 수 있다. 
 루프 직전의 lea 0x166f(%rip), %rsi에서 계산되는 주소를 x/16dw 로 출력하면 아래와 같다.
 
+```
 0x555555556c20 <array.3416>    :  10  2  14  7 
 0x555555556c30 <array.3416+16>:  8  12  15  11
 0x555555556c40 <array.3416+32>:  0  4  1  13  
 0x555555556c50 <array.3416+48>:  3  9  6  5   
+```
 
-%rsi에 크기가 16이며 그 값들이 0~15사이의 유일한 정수인 배열이 들어가는 것을 알 수 있다. 이제 루프 내부로 들어가보면 아래의 명령들을 확인할 수 있는데,
+%rsi에 크기가 16이며 그 값들이 0~15사이의 유일한 정수인 배열이 들어가는 것을 알 수 있다.
+이제 루프 내부로 들어가보면 아래의 명령들을 확인할 수 있는데,
+```
 mov   (%rsi,%rax,4), %eax 	// %rax를 offset으로 배열의 값을 얻어오고
 add   %eax, %ecx			// %ecx에 그 값을 계속 더해주고 있으며
 cmp   $0xf, %eax			// %eax가 0xf일경우 루프를 빠져나온다
+```
+
 루프를 빠져 나온 뒤 cmp $0xf, %edx에 의해 정확히 15번 루프문을 반복해야 하는 추가 조건을 확인하였다. 이를 종합하면 15번째 반복에서 15의 값을 갖는 offset(=6)에 도착해야 하는 것을 알 수 있다.
+
 5를 입력하면 15번의 반복 후 루프문을 빠져나오며 그 반복동안 합해진 %ecx의값은 115이다. 배열을 참조하는 과정은 아래와 같다.
 arr[5] = 12 -> arr[12]= 3 -> arr[3] = 7 -> arr[7] = 11 -> arr[11] = 13 -> arr[13] = 9 -> arr[9] = 4 -> arr[4] = 8 -> arr[8] = 0 -> arr[0] = 10 -> arr[10] = 1 -> arr[1]=2 -> arr[2] =14 -> arr[14] = 6 -> arr[6] = 15 
-따라서 5 115를 입력하면 <Phase_5>를 defuse 할 수 있다.
+
+
+따라서 **5 115**를 입력하면 <Phase_5>를 defuse 할 수 있다.
 
 
 ##<phase_6>
-
-
-
+```
 00000000000015f8 <phase_6>:
     15f8:	41 55                	push   %r13
     15fa:	41 54                	push   %r12
@@ -384,9 +415,11 @@ arr[5] = 12 -> arr[12]= 3 -> arr[3] = 7 -> arr[7] = 11 -> arr[11] = 13 -> arr[13
     1712:	41 5d                	pop    %r13
     1714:	c3                   	retq   
     1715:	e8 d6 f7 ff ff       	callq  ef0 <__stack_chk_fail@plt>
-
+```
 
 <read_six_numbers>이후 여러 번의 비교를 통해 6개의 입력된 정수가 1이상, 6이하임을 알 수 있고lea  0x202b9f(%rip), %rdx에서 계산되는 주소를 참조하여 이하의 노드들의 존재를 확인하였다.
+
+```
 	node		value		#node	 	pointer to next node
 x/3x 0x555555758230	3ae		1		0x555555758240
 x/3x 0x555555758240	2e9		2		0x555555758250
@@ -394,11 +427,13 @@ x/3x 0x555555758250	33b		3		0x555555758260
 x/3x 0x555555758260	129		4		0x555555758270
 x/3x 0x555555758270	fa		5		0x555555758110
 x/3x 0x555555758110	127		6		0000000000	
-이후 mov 0x20(%rsp), %rbx 와 같은 여러 번의 주소 참조 mov를 통해 입력 받은 값을 노드 방문 순서로 사용, 각 노드들을 순회하며 현재 노드의 value가 다음 노드의 value보다 크거나 같을 경우 <explode_bomb>으로 점프하는 것을 확인 할 수 있다. 따라서 노드의 값이 작은 순서대로 입력을 주면 폭탄이 터지는 것을 피할 수 있으므로, 5 6 4 2 3 1을 입력하여 Phase_6를 defuse 하였다.
+```
+
+이후 **mov 0x20(%rsp), %rbx** 와 같은 여러 번의 주소 참조 mov를 통해 입력 받은 값을 노드 방문 순서로 사용, 각 노드들을 순회하며 현재 노드의 value가 다음 노드의 value보다 크거나 같을 경우 <explode_bomb>으로 점프하는 것을 확인 할 수 있다. 따라서 노드의 값이 작은 순서대로 입력을 주면 폭탄이 터지는 것을 피할 수 있으므로, **5 6 4 2 3 1**을 입력하여 Phase_6를 defuse 하였다.
 
 ##<Secret_Phase>
 
-
+```
 000000000000171a <fun7>:
     171a:	48 85 ff             	test   %rdi,%rdi
     171d:	74 34                	je     1753 <fun7+0x39>
@@ -446,32 +481,38 @@ x/3x 0x555555758110	127		6		0000000000
     17a8:	c3                   	retq   
     17a9:	e8 a6 03 00 00       	callq  1b54 <explode_bomb>
     17ae:	eb ce                	jmp    177e <secret_phase+0x25>
-
-
+```
 
 각각의 phase를 defuse할때 호출되는 phase_defuse()를 살펴보면 phase_4의 정답은 두개인데 “%d %d %s”를 입력하면 추가적인 secret_phase()가 호출됨을 알 수 있다. %s가 비교되는 0x 555555556f00의 값을 x/s 명령어를 통해 입력, 문자열 “DrEvil”을 확인하였다. Phase_4의 입력 시 추가로 “DrEvil”을 입력하면 Secret_Phase로 진입할 수 있다.
-Secret_Phase를 확인하면 callq 171a <fun7>  /  cmp $0x1, %eax  의 핵심코드를 가지고 있다. %eax (func7의 리턴값)이 1이기만 하면 폭탄을 defuse 가능한 것이다. 
+Secret_Phase를 확인하면 **callq 171a <fun7>**  /  **cmp $0x1, %eax**  의 핵심코드를 가지고 있다. %eax (func7의 리턴값)이 1이기만 하면 폭탄을 defuse 가능한 것이다. 
 func7은 재귀함수로써 %esi(주어진 입력)과 현재 노드의 주소를 입력으로 받고, 노드(이하 pNode)가 NULL일경우 -1, 노드의 값이 입력보다 클 경우 func7(esi, pNode->left)*2, 같을 경우0, 작을 경우 func7(esi, pNode->right) * 2 + 1을 각각 리턴한다. 
 
 입력으로 사용되는 노드는 lea 0x2029c9(%rip),%rdi를 통해 참조되는 것을 확인할 수 있고, x/120wd 0x555555758150 을 통해 출력된 내용의 일부는 아래와 같다.
-
+```
 0x555555758150 <n1>:    0x00000024      0x00000000      0x55758170      0x00005555
 0x555555758160 <n1+16>: 0x55758190      0x00005555      0x00000000      0x00000000
 0x555555758170 <n21>:   0x00000008      0x00000000      0x557581f0      0x00005555
 0x555555758180 <n21+16>:0x557581b0      0x00005555      0x00000000      0x00000000 
-
+```
 즉, 노드들은 value, left*, right*로 구성된다. 모든 노드들을 따라가 확인하면 각각의 노드가 tree형태로 연결된 것을 확인 할 수 있으며, 이를 표현하면 아래와 같다.
 						n1(24)
+						
 		         n21(8) 		                 n22(32)
+			 
 	      n31(6)           n32(16)		    n33(2d)          n44(23)
+	      
  	n41(1)   n42(7)   n43(14)  n44(23)	n45(28)  n46(2f)   (null)   (null)
 
+
 fun7의 알고리즘을 적용하여 1을 리턴하는 값을 입력해야 하는데, 45를 입력하면 아래와 같은 재귀호출들이 이루어진다.
+
+
  1) n1의 값 24(10진수 36)는 45보다 작으므로return fun7(45,n1->right) * 2 + 1
+
+
  2) n22의 값32(10진수 50)는 45보다 크기에 return fun7(45,n22->left) * 2
- 3) 2d(10진수 45)와 같으니 0(재귀호출 종료).  즉( 0*2+1) = 1을 리턴하여 조건에 의해 phase_secret을 빠져나올 수 있다.
-따라서 45를 입력하여 secret_phase를 defuse하였다.
 
 
+3) 2d(10진수 45)와 같으니 0(재귀호출 종료).  즉( 0*2+1) = 1을 리턴하여 조건에 의해 phase_secret을 빠져나올 수 있다.
 
-
+따라서 **45**를 입력하여 secret_phase를 defuse하였다.
